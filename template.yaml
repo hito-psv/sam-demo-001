@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-app
+
+  Sample SAM Template for sam-app
+
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Demo
+      AttributeDefinitions:
+        - AttributeName: Key
+          AttributeType: S
+        - AttributeName: CreateDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Key
+          KeyType: HASH
+        - AttributeName: CreateDate
+          KeyType: RANGE
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  
+  SamDdbFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt SamDdbFunctionIamRole.Arn
+      CodeUri: sam_ddb/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Events:
+        SamDdb:
+          Type: Api
+          Properties:
+            Path: /ddb
+            Method: post
+
+  SamDdbFunctionIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
+      Policies:
+        - PolicyName: 'SamDdbPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !GetAtt DynamoTable.Arn
+
+Outputs:
+  SamDdbApi:
+    Description: "API Gateway endpoint URL for Prod stage for SAM DDB function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/ddb/"
